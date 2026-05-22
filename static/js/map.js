@@ -109,14 +109,12 @@ function locateUser() {
   let firstLoc = true;
   let locationResolved = false;
   
-  // Failsafe timeout in case browser geolocation completely hangs (e.g., HTTP context)
   setTimeout(() => {
     if (!locationResolved) {
-      console.log('Geolocation hung. Forcing simulated fallback.');
-      showUserLocation(13.0827, 80.2707, 100, true);
-      if (btn) { btn.innerHTML = '📍 Simulated Location'; btn.disabled = false; }
+      console.log('Geolocation request timed out.');
+      if (btn) { btn.innerHTML = '📍 Location Timeout'; btn.disabled = false; }
     }
-  }, 2000);
+  }, 5000);
   
   // Use getCurrentPosition to ensure we get an immediate fix
   navigator.geolocation.getCurrentPosition(
@@ -137,10 +135,8 @@ function locateUser() {
     (err) => {
       locationResolved = true;
       console.warn('Geolocation error:', err.message);
-      // Fallback to simulated location for testing purposes
-      console.log('Using simulated location fallback.');
-      showUserLocation(13.0827, 80.2707, 100, true);
-      if (btn) { btn.innerHTML = '📍 Simulated Location'; btn.disabled = false; }
+      alert('Unable to retrieve location: ' + err.message);
+      if (btn) { btn.innerHTML = '📍 Location Error'; btn.disabled = false; }
     },
     { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
   );
@@ -205,8 +201,34 @@ async function loadPotholes() {
 }
 
 // ── Refresh ─────────────────────────────────────────────────────────
-function refreshMap() {
-  loadPotholes();
+async function refreshMap() {
+  const btn = document.getElementById('btn-refresh-map');
+  const originalText = btn ? btn.innerHTML : '🔄 Refresh Map';
+  const mapEl = document.getElementById('main-map');
+  
+  if (btn) {
+    btn.innerHTML = '⏳ Refreshing...';
+    btn.disabled = true;
+  }
+  
+  if (mapEl) {
+    mapEl.style.transition = 'opacity 0.2s ease-in-out';
+    mapEl.style.opacity = '0.4';
+  }
+  
+  await loadPotholes();
+  
+  // Guarantee the blink is visible even if the API responds instantly
+  await new Promise(r => setTimeout(r, 250));
+  
+  if (mapEl) {
+    mapEl.style.opacity = '1';
+  }
+  
+  if (btn) {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  }
 }
 
 // ── Routing & Search ────────────────────────────────────────────────

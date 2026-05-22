@@ -92,25 +92,27 @@ function startAccelerometer() {
           if (state === 'granted') {
             attachAccelListener();
           } else {
-            alert('Accelerometer permission denied. Using simulation mode.');
-            startSimulatedAccelerometer();
+            alert('Accelerometer permission denied. Real-time detection cannot proceed.');
+            stopDetection();
           }
         })
         .catch(() => {
-          startSimulatedAccelerometer();
+          alert('Failed to access accelerometer.');
+          stopDetection();
         });
     } else {
       attachAccelListener();
-      // If no real data comes in 2 seconds, switch to simulation
+      // If no real data comes in 2 seconds, notify user
       setTimeout(() => {
         if (isDetecting && accelHistory.length === 0) {
-          console.log('No accelerometer data detected, switching to simulation');
-          startSimulatedAccelerometer();
+          alert('No accelerometer data detected. Ensure your device has sensors.');
+          stopDetection();
         }
       }, 2000);
     }
   } else {
-    startSimulatedAccelerometer();
+    alert('DeviceMotion not supported. Detection requires a physical device with an accelerometer.');
+    stopDetection();
   }
 }
 
@@ -136,29 +138,7 @@ function stopAccelerometer() {
   }
 }
 
-// ── Simulated Accelerometer (for desktop testing) ───────────────────
-let simInterval = null;
-
-function startSimulatedAccelerometer() {
-  console.log('🎮 Running in simulation mode (no real accelerometer)');
-  simInterval = setInterval(() => {
-    if (!isDetecting) return;
-
-    // Normal driving vibration
-    let x = (Math.random() - 0.5) * 3;
-    let y = (Math.random() - 0.5) * 3;
-    let z = GRAVITY + (Math.random() - 0.5) * 2;
-
-    // Random pothole spike (~5% chance)
-    if (Math.random() < 0.05) {
-      const spike = 15 + Math.random() * 20;
-      z += spike * (Math.random() > 0.5 ? 1 : -1);
-      x += (Math.random() - 0.5) * 10;
-    }
-
-    processAccelData(x, y, z);
-  }, 100);
-}
+// ── Simulated Accelerometer Removed ───────────────────────────────────
 
 // ── Process Accelerometer Data ──────────────────────────────────────
 let currentPosition = null;
@@ -254,13 +234,8 @@ function onPositionUpdate(position) {
 
 function onPositionError(err) {
   console.warn('GPS Error:', err.message);
-  if (isDetecting && !currentPosition) {
-    // Use a simulated position for testing on desktop
-    currentPosition = {
-      lat: 13.0827 + (Math.random() - 0.5) * 0.01,
-      lng: 80.2707 + (Math.random() - 0.5) * 0.01
-    };
-    updateStatus('detecting', '🔍 Scanning (GPS simulated)');
+  if (isDetecting) {
+    updateStatus('alert', '⚠️ GPS Error: ' + err.message);
   }
 }
 
@@ -269,15 +244,12 @@ async function onPotholeDetected(accelPeak) {
   detectionCount++;
 
   // Determine position
-  let lat, lng;
-  if (currentPosition) {
-    lat = currentPosition.lat;
-    lng = currentPosition.lng;
-  } else {
-    // Simulated position for desktop testing
-    lat = 13.0827 + (Math.random() - 0.5) * 0.02;
-    lng = 80.2707 + (Math.random() - 0.5) * 0.02;
+  if (!currentPosition) {
+    console.warn("Pothole detected but GPS location is unknown. Cannot report.");
+    return;
   }
+  let lat = currentPosition.lat;
+  let lng = currentPosition.lng;
 
   // Determine severity
   let severity;
